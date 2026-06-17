@@ -1,0 +1,22 @@
+{
+  "type": "module",
+  "main": "dist/extension.js",
+  "scripts": {
+    "build": "tsc --noEmit && tsx build.ts",
+    "start": "tsx build.ts && extensions-cli run",
+    "package": "tsx build.ts --production && extensions-cli package"
+  },
+  "dependencies": {
+    "@ableton-extensions/sdk": "file:/Users/dave/Downloads/_Ableton/extensions-sdk-1.0.0-beta.0/ableton-extensions-sdk-1.0.0-beta.0.tgz"
+  },
+  "devDependencies": {
+    "@ableton-extensions/cli": "file:/Users/dave/Downloads/_Ableton/extensions-sdk-1.0.0-beta.0/ableton-extensions-cli-1.0.0-beta.0.tgz",
+    "@types/node": "^25.0.10",
+    "esbuild": "0.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.0": true
+  }
+}

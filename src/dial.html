@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wavetable Randomizer</title>
+  <script>
+    const isWebKit = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.live;
+    const isWebView2 = window.chrome && window.chrome.webview;
+
+    function sendMessage(msg) {
+      if (isWebKit) window.webkit.messageHandlers.live.postMessage(msg);
+      else if (isWebView2) window.chrome.webview.postMessage(msg);
+    }
+
+    function closeWithResult(result) {
+      sendMessage({ method: "close_and_send", params: [JSON.stringify(result)] });
+    }
+
+    // ── Dial canvas ──────────────────────────────────────────────────────────
+    let intensity = 0.5;
+    let dragging = false;
+    let dragStartY = 0;
+    let dragStartIntensity = 0;
+
+    const START_ANGLE = Math.PI * 0.75;   // 7h30
+    const END_ANGLE   = Math.PI * 2.25;   // 4h30 (270° de course)
+    const RANGE       = END_ANGLE - START_ANGLE;
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    // Couleur : blanc (0%) → violet (100%)
+    function intensityToColor(t) {
+      const r = Math.round(lerp(220, 110, t));
+      const g = Math.round(lerp(220,  60, t));
+      const b = Math.round(lerp(230, 200, t));
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function drawDial(canvas, val) {
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width;
+      const H = canvas.height;
+      const cx = W / 2;
+      const cy = H / 2;
+      const R  = W * 0.38;
+      const color = intensityToColor(val);
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Piste de fond
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, START_ANGLE, END_ANGLE);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // Arc de valeur
+      const valAngle = START_ANGLE + val * RANGE;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, START_ANGLE, valAngle);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // Corps du dial
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.62, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Indicateur (trait)
+      const needleAngle = START_ANGLE + val * RANGE;
+      const inner = R * 0.28;
+      const outer = R * 0.56;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(needleAngle) * inner, cy + Math.sin(needleAngle) * inner);
+      ctx.lineTo(cx + Math.cos(needleAngle) * outer, cy + Math.sin(needleAngle) * outer);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // Halo central
+      const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.62);
+      grd.addColorStop(0, `${color.replace("rgb","rgba").replace(")",",0.15)")}`);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.62, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    }
+
+    function updateDisplay(canvas, label) {
+      drawDial(canvas, intensity);
+      const pct = Math.round(intensity * 100);
+      label.textContent = pct + "%";
+      label.style.color = intensityToColor(intensity);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const canvas = document.getElementById("dial");
+      const label  = document.getElementById("pct");
+
+      updateDisplay(canvas, label);
+
+      // Drag vertical : glisser vers le haut = plus d'intensité
+      canvas.addEventListener("mousedown", (e) => {
+        dragging = true;
+        dragStartY = e.clientY;
+        dragStartIntensity = intensity;
+        canvas.style.cursor = "ns-resize";
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const delta = (dragStartY - e.clientY) / 160;
+        intensity = Math.max(0, Math.min(1, dragStartIntensity + delta));
+        updateDisplay(canvas, label);
+      });
+
+      window.addEventListener("mouseup", () => {
+        dragging = false;
+        canvas.style.cursor = "pointer";
+      });
+
+      // Molette souris
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        intensity = Math.max(0, Math.min(1, intensity - e.deltaY / 800));
+        updateDisplay(canvas, label);
+      }, { passive: false });
+
+      document.getElementById("btn-randomize").addEventListener("click", () => {
+        closeWithResult({ intensity });
+      });
+
+      document.getElementById("btn-cancel").addEventListener("click", () => {
+        closeWithResult({ intensity: null });
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter")  closeWithResult({ intensity });
+        if (e.key === "Escape") closeWithResult({ intensity: null });
+        if (e.key === "ArrowUp")   { intensity = Math.min(1, intensity + 0.05); updateDisplay(canvas, label); }
+        if (e.key === "ArrowDown") { intensity = Math.max(0, intensity - 0.05); updateDisplay(canvas, label); }
+      });
+    });
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; }
+    :root {
+      --bg:      hsl(0,0%,15%);
+      --bg-ctrl: hsl(0,0%,20%);
+      --border:  hsl(0,0%,10%);
+      --text:    hsl(0,0%,72%);
+      --text-dim:hsl(0,0%,42%);
+      --accent:  hsl(31,100%,67%);
+    }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "AbletonSansSmall", ui-sans-serif, sans-serif;
+      font-size: 11.5px;
+      font-weight: 500;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    #dial {
+      cursor: pointer;
+      display: block;
+    }
+    #pct {
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin: 4px 0 14px;
+      transition: color 0.08s;
+    }
+    .hint {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+    .buttons {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      font: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      height: 22px;
+      padding: 0 16px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      cursor: pointer;
+      background: var(--bg-ctrl);
+      color: var(--text);
+    }
+    button:hover { filter: brightness(1.2); }
+    button#btn-randomize {
+      background: var(--bg-ctrl);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    button#btn-randomize:active {
+      background: var(--accent);
+      color: hsl(0,0%,10%);
+    }
+  </style>
+</head>
+<body>
+  <h1>Wavetable Randomizer</h1>
+  <canvas id="dial" width="180" height="180"></canvas>
+  <div id="pct">50%</div>
+  <div class="hint">glisser · molette · ↑↓</div>
+  <div class="buttons">
+    <button id="btn-cancel">Annuler</button>
+    <button id="btn-randomize">Randomiser</button>
+  </div>
+</body>
+</html>
