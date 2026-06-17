@@ -12,7 +12,7 @@ Double-click the `.ablx` file with Live Beta open (Developer Mode enabled in Pre
 
 ## Usage
 
-Right-click on a MIDI track (clip view or arrangement view) containing a Wavetable → search in extension menu: ***Soulreaktive - Wavetable Randomizer*** → Start Randomize Wavetable
+Right-click on a MIDI track (clip view or arrangement view) containing a Wavetable → search in extension menu: ***Soulreaktive - WavetableRandomizer*** → Start Randomize Wavetable
 
 ## What gets randomized
 
